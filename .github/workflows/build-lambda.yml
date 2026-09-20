@@ -1,0 +1,41 @@
+name: Build and Deploy HyperFrames Lambda
+
+on:
+  workflow_dispatch:      # Permite rodar manualmente pela interface do GitHub [citation:1]
+  push:
+    paths:
+      - 'packages/aws-lambda/**'   # Só roda quando o código do Lambda mudar
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest   # VM Linux real do GitHub
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Instalar dependências
+        run: bun install
+
+      - name: Build do handler.zip
+        run: bun run --cwd packages/aws-lambda build:zip
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy via SAM
+        run: |
+          cd examples/aws-lambda
+          sam deploy --guided --resolve-s3 \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --parameter-overrides ChromeSource=sparticuz ReservedConcurrency=8
+        env:
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
