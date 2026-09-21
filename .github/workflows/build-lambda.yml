@@ -43,6 +43,6 @@ jobs:
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --parameter-overrides ChromeSource=sparticuz ReservedConcurrency=8
+            --parameter-overrides ChromeSource=sparticuz ReservedConcurrency=8 LambdaMemoryMb=3008
         env:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
