@@ -1,14 +1,14 @@
 name: Build and Deploy HyperFrames Lambda
 
 on:
-  workflow_dispatch:      # Permite rodar manualmente pela interface do GitHub [citation:1]
+  workflow_dispatch:
   push:
     paths:
-      - 'packages/aws-lambda/**'   # Só roda quando o código do Lambda mudar
+      - 'packages/aws-lambda/**'
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest   # VM Linux real do GitHub
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout do repositório
@@ -19,6 +19,9 @@ jobs:
 
       - name: Instalar dependências
         run: bun install
+
+      - name: Build do monorepo (OBRIGATÓRIO antes do build:zip)
+        run: bun run build
 
       - name: Build do handler.zip
         run: bun run --cwd packages/aws-lambda build:zip
