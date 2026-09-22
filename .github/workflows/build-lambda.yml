@@ -26,6 +26,13 @@ jobs:
       - name: Build do handler.zip
         run: bun run --cwd packages/aws-lambda build:zip
 
+      - name: Upload handler.zip como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: handler-zip
+          path: packages/aws-lambda/dist/handler.zip
+          retention-days: 7
+
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
