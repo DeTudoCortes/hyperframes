@@ -1,0 +1,55 @@
+name: Build and Deploy HyperFrames Lambda
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'packages/aws-lambda/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Instalar dependências
+        run: bun install
+
+      - name: Build do monorepo (OBRIGATÓRIO antes do build:zip)
+        run: bun run build
+
+      - name: Build do handler.zip
+        run: bun run --cwd packages/aws-lambda build:zip
+
+      - name: Upload handler.zip como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: handler-zip
+          path: packages/aws-lambda/dist/handler.zip
+          retention-days: 7
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy via SAM
+        run: |
+          cd examples/aws-lambda
+          sam deploy \
+            --stack-name hyperframes-lambda \
+            --region ${{ secrets.AWS_REGION }} \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides ChromeSource=sparticuz LambdaMemoryMb=2048
+        env:
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
