@@ -29,8 +29,11 @@ jobs:
       - name: Instalar Bun
         uses: oven-sh/setup-bun@v1
 
-      - name: Instalar HyperFrames Lambda adapter
-        run: npm install -g @hyperframes/aws-lambda
+      - name: Instalar HyperFrames CLI e Lambda adapter
+        run: |
+          npm install -g hyperframes@latest
+          npm install -g @hyperframes/aws-lambda@latest
+          npm install @hyperframes/aws-lambda
 
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
