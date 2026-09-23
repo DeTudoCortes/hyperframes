@@ -48,7 +48,7 @@ jobs:
 
       - name: Renderizar via Lambda
         run: |
-          npx hyperframes@latest lambda render \
+          hyperframes lambda render \
             ${{ inputs.project_path }} \
             --stack-name hyperframes-lambda \
             --region ${{ secrets.AWS_REGION }} \
