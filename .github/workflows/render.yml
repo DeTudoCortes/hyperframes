@@ -1,0 +1,67 @@
+name: Render Short via Lambda
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_path:
+        description: 'Caminho do projeto dentro do repo'
+        required: true
+        default: 'examples/my-short-project'
+      width:
+        description: 'Largura em pixels'
+        required: true
+        default: '1080'
+      height:
+        description: 'Altura em pixels'
+        required: true
+        default: '1920'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Instalar HyperFrames CLI e Lambda adapter
+        run: |
+          npm install -g hyperframes@latest
+          npm install -g @hyperframes/aws-lambda@latest
+          
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Baixar video_teste.mp4 do S3
+        run: |
+          aws s3 cp s3://hyperframes-lambda-renderbucket-ufmvxztez6gg/assets/video_teste.mp4 \
+            ${{ inputs.project_path }}/assets/video_teste.mp4
+
+      - name: Renderizar via Lambda
+        run: |
+          hyperframes lambda render \
+            ${{ inputs.project_path }} \
+            --stack-name hyperframes-lambda \
+            --region ${{ secrets.AWS_REGION }} \
+            --width ${{ inputs.width }} \
+            --height ${{ inputs.height }} \
+            --fps 30 \
+            --format mp4 \
+            --quality standard \
+            --wait
+
+      - name: Upload do MP4 final
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-render
+          path: ${{ inputs.project_path }}/renders/**/*.mp4
+          retention-days: 7
