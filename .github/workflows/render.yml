@@ -33,8 +33,7 @@ jobs:
         run: |
           npm install -g hyperframes@latest
           npm install -g @hyperframes/aws-lambda@latest
-          npm install @hyperframes/aws-lambda
-
+          
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
