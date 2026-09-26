@@ -131,11 +131,13 @@ jobs:
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
+          export HYPERFRAMES_REPO_ROOT="$HYPERFRAMES_REPO_ROOT"
 
           hyperframes lambda deploy \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
-            --memory=2048
+            --memory=2048 \
+            --concurrency=0
 
       - name: Baixar video_teste.mp4 do S3
         run: |
