@@ -127,17 +127,41 @@ jobs:
         run: |
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
 
-      - name: Deploy da stack Lambda
+      - name: Gerar arquivo de estado do HyperFrames
         run: |
           set -euo pipefail
-          cd "$HYPERFRAMES_REPO_ROOT"
-          export HYPERFRAMES_REPO_ROOT="$HYPERFRAMES_REPO_ROOT"
+          mkdir -p "$HYPERFRAMES_REPO_ROOT/.hyperframes"
 
-          hyperframes lambda deploy \
-            --stack-name="$STACK_NAME" \
-            --region="$AWS_REGION" \
-            --memory=2048 \
-            --concurrency=0
+          bucket="$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
+            --output text)"
+
+          state_machine_arn="$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`RenderStateMachineArn`].OutputValue' \
+            --output text)"
+
+          function_arn="$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`RenderFunctionArn`].OutputValue' \
+            --output text)"
+
+          cat > "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json" <<EOF
+          {
+            "stackName": "$STACK_NAME",
+            "region": "$AWS_REGION",
+            "stateMachineArn": "$state_machine_arn",
+            "bucketName": "$bucket",
+            "functionArn": "$function_arn"
+          }
+          EOF
+
+          echo "Arquivo de estado gerado:"
+          cat "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json"
 
       - name: Baixar video_teste.mp4 do S3
         run: |
