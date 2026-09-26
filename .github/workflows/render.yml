@@ -1,4 +1,4 @@
-name: Render Short via Lambda
+name: Deploy and Render HyperFrames Lambda
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ on:
         default: '1920'
 
 jobs:
-  deploy-and-render:
+  build-deploy-render:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,10 +29,14 @@ jobs:
       - name: Instalar Bun
         uses: oven-sh/setup-bun@v1
 
-      - name: Instalar HyperFrames CLI e Lambda adapter
-        run: |
-          npm install -g hyperframes@latest
-          npm install -g @hyperframes/aws-lambda@latest
+      - name: Instalar dependências
+        run: bun install
+
+      - name: Build do monorepo
+        run: bun run build
+
+      - name: Build do handler.zip
+        run: bun run --cwd packages/aws-lambda build:zip
 
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -41,21 +45,26 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Deploy via SAM
+        run: |
+          cd examples/aws-lambda
+          sam deploy \
+            --stack-name hyperframes-lambda \
+            --region ${{ secrets.AWS_REGION }} \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides ChromeSource=sparticuz LambdaMemoryMb=2048
+
       - name: Baixar video_teste.mp4 do S3
         run: |
           aws s3 cp s3://hyperframes-lambda-renderbucket-ufmvxztez6gg/assets/video_teste.mp4 \
             ${{ inputs.project_path }}/assets/video_teste.mp4
 
-      - name: Deploy da stack Lambda
-        run: |
-          hyperframes lambda deploy \
-            --stack-name=hyperframes-lambda \
-            --region=${{ secrets.AWS_REGION }} \
-            --skip-build
-
       - name: Renderizar via Lambda
         run: |
-          hyperframes lambda render ${{ inputs.project_path }} \
+          npx hyperframes lambda render ${{ inputs.project_path }} \
             --stack-name=hyperframes-lambda \
             --region=${{ secrets.AWS_REGION }} \
             --width ${{ inputs.width }} \
