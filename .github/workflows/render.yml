@@ -39,18 +39,13 @@ jobs:
       - name: Instalar Bun
         uses: oven-sh/setup-bun@v1
 
-      - name: Descobrir raiz do HyperFrames
+            - name: Descobrir raiz do HyperFrames
+        id: discover
         run: |
           set -euo pipefail
 
-          candidates=(
-            "$HYPERFRAMES_REPO_ROOT"
-            "$GITHUB_WORKSPACE"
-            "$(git rev-parse --show-toplevel 2>/dev/null || true)"
-          )
-
           found=""
-          for candidate in "${candidates[@]}"; do
+          for candidate in "$HYPERFRAMES_REPO_ROOT" "$GITHUB_WORKSPACE"; do
             if [ -n "$candidate" ] && [ -d "$candidate/packages/aws-lambda" ]; then
               found="$candidate"
               break
@@ -58,33 +53,17 @@ jobs:
           done
 
           if [ -z "$found" ]; then
-            match="$(find "$GITHUB_WORKSPACE" -maxdepth 5 -type d -path '*/packages/aws-lambda' -not -path '*/node_modules/*' -not -path '*/.git/*' -print 2>/dev/null | head -n 1 || true)"
-            if [ -n "$match" ]; then
-              found="$(dirname "$(dirname "$match")")"
-            fi
-          fi
-
-          if [ -z "$found" ]; then
-            echo "::error::Não encontrei packages/aws-lambda a partir de $GITHUB_WORKSPACE."
-            find "$GITHUB_WORKSPACE" -maxdepth 5 -type d -name aws-lambda -not -path '*/node_modules/*' -not -path '*/.git/*' -print || true
-            exit 1
-          fi
-
-          if [ ! -f "$found/package.json" ]; then
-            echo "::warning::$found não possui package.json. Continuando para ver se o monorepo ainda funciona."
+            found="$GITHUB_WORKSPACE"
           fi
 
           abs_project_path="$PROJECT_PATH"
           case "$abs_project_path" in
-            /*)
-              ;;
-            *)
-              abs_project_path="$found/$PROJECT_PATH"
-              ;;
+            /*) ;;
+            *) abs_project_path="$found/$PROJECT_PATH" ;;
           esac
 
-          if [[ "$abs_project_path" == "$GITHUB_WORKSPACE"/* ]]; then
-            artifact_render_path="${abs_project_path#$GITHUB_WORKSPACE/}/renders/**/*.mp4"
+          if [ "${abs_project_path#"$GITHUB_WORKSPACE/"}" != "$abs_project_path" ]; then
+            artifact_render_path="${abs_project_path#"$GITHUB_WORKSPACE/"}/renders/**/*.mp4"
           else
             artifact_render_path="$abs_project_path/renders/**/*.mp4"
           fi
@@ -93,9 +72,9 @@ jobs:
           echo "ABS_PROJECT_PATH=$abs_project_path" >> "$GITHUB_ENV"
           echo "ARTIFACT_RENDER_PATH=$artifact_render_path" >> "$GITHUB_ENV"
 
-          echo "Raiz detectada do HyperFrames: $found"
-          echo "Caminho absoluto do projeto: $abs_project_path"
-          echo "Caminho do artifact: $artifact_render_path"
+          echo "Raiz: $found"
+          echo "Projeto: $abs_project_path"
+          echo "Artifact: $artifact_render_path"
 
       - name: Instalar dependências
         run: |
