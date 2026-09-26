@@ -67,6 +67,13 @@ jobs:
           npm install -g hyperframes@latest
           npm install -g @hyperframes/aws-lambda@latest
 
+      - name: Deploy da stack Lambda (gera arquivo de estado)
+        run: |
+          hyperframes lambda deploy \
+            --stack-name=hyperframes-lambda \
+            --region=${{ secrets.AWS_REGION }} \
+            --memory=2048
+
       - name: Renderizar via Lambda
         run: |
           hyperframes lambda render ${{ inputs.project_path }} \
