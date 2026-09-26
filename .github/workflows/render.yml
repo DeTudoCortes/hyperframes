@@ -109,27 +109,12 @@ jobs:
           cd "$HYPERFRAMES_REPO_ROOT"
           bun run build
 
-      - name: Validar CLI local do HyperFrames e adicionar ao PATH
+      - name: Instalar HyperFrames CLI e Lambda adapter
         run: |
           set -euo pipefail
-
-          bin_dir="$HYPERFRAMES_REPO_ROOT/node_modules/.bin"
-
-          if [ ! -x "$bin_dir/hyperframes" ]; then
-            echo "::error::Binário hyperframes não encontrado em $bin_dir/hyperframes."
-            echo "Conteúdo de node_modules/.bin:"
-            ls -la "$bin_dir" || true
-
-            echo "Procurando arquivos chamados hyperframes no repositório:"
-            find "$HYPERFRAMES_REPO_ROOT" -maxdepth 5 -type f -name hyperframes -not -path '*/node_modules/.bin/*' -print || true
-
-            exit 1
-          fi
-
-          echo "$bin_dir" >> "$GITHUB_PATH"
-          export PATH="$bin_dir:$PATH"
-
-          hyperframes --version || true
+          npm install -g hyperframes@latest
+          npm install -g @hyperframes/aws-lambda@latest
+          hyperframes --version
 
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
