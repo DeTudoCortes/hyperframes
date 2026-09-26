@@ -16,10 +16,18 @@ on:
         required: true
         default: '1920'
 
+permissions:
+  contents: read
+
 jobs:
   build-deploy-render:
     runs-on: ubuntu-latest
+
     env:
+      PROJECT_PATH: ${{ inputs.project_path }}
+      WIDTH: ${{ inputs.width }}
+      HEIGHT: ${{ inputs.height }}
+      STACK_NAME: hyperframes-lambda
       HYPERFRAMES_REPO_ROOT: ${{ github.workspace }}
 
     steps:
@@ -31,11 +39,97 @@ jobs:
       - name: Instalar Bun
         uses: oven-sh/setup-bun@v1
 
+      - name: Descobrir raiz do HyperFrames
+        run: |
+          set -euo pipefail
+
+          candidates=(
+            "$HYPERFRAMES_REPO_ROOT"
+            "$GITHUB_WORKSPACE"
+            "$(git rev-parse --show-toplevel 2>/dev/null || true)"
+          )
+
+          found=""
+          for candidate in "${candidates[@]}"; do
+            if [ -n "$candidate" ] && [ -d "$candidate/packages/aws-lambda" ]; then
+              found="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$found" ]; then
+            match="$(find "$GITHUB_WORKSPACE" -maxdepth 5 -type d -path '*/packages/aws-lambda' -not -path '*/node_modules/*' -not -path '*/.git/*' -print 2>/dev/null | head -n 1 || true)"
+            if [ -n "$match" ]; then
+              found="$(dirname "$(dirname "$match")")"
+            fi
+          fi
+
+          if [ -z "$found" ]; then
+            echo "::error::Não encontrei packages/aws-lambda a partir de $GITHUB_WORKSPACE."
+            find "$GITHUB_WORKSPACE" -maxdepth 5 -type d -name aws-lambda -not -path '*/node_modules/*' -not -path '*/.git/*' -print || true
+            exit 1
+          fi
+
+          if [ ! -f "$found/package.json" ]; then
+            echo "::warning::$found não possui package.json. Continuando para ver se o monorepo ainda funciona."
+          fi
+
+          abs_project_path="$PROJECT_PATH"
+          case "$abs_project_path" in
+            /*)
+              ;;
+            *)
+              abs_project_path="$found/$PROJECT_PATH"
+              ;;
+          esac
+
+          if [[ "$abs_project_path" == "$GITHUB_WORKSPACE"/* ]]; then
+            artifact_render_path="${abs_project_path#$GITHUB_WORKSPACE/}/renders/**/*.mp4"
+          else
+            artifact_render_path="$abs_project_path/renders/**/*.mp4"
+          fi
+
+          echo "HYPERFRAMES_REPO_ROOT=$found" >> "$GITHUB_ENV"
+          echo "ABS_PROJECT_PATH=$abs_project_path" >> "$GITHUB_ENV"
+          echo "ARTIFACT_RENDER_PATH=$artifact_render_path" >> "$GITHUB_ENV"
+
+          echo "Raiz detectada do HyperFrames: $found"
+          echo "Caminho absoluto do projeto: $abs_project_path"
+          echo "Caminho do artifact: $artifact_render_path"
+
       - name: Instalar dependências
-        run: bun install
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+          bun install
 
       - name: Build do monorepo
-        run: bun run build
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+          bun run build
+
+      - name: Validar CLI local do HyperFrames e adicionar ao PATH
+        run: |
+          set -euo pipefail
+
+          bin_dir="$HYPERFRAMES_REPO_ROOT/node_modules/.bin"
+
+          if [ ! -x "$bin_dir/hyperframes" ]; then
+            echo "::error::Binário hyperframes não encontrado em $bin_dir/hyperframes."
+            echo "Conteúdo de node_modules/.bin:"
+            ls -la "$bin_dir" || true
+
+            echo "Procurando arquivos chamados hyperframes no repositório:"
+            find "$HYPERFRAMES_REPO_ROOT" -maxdepth 5 -type f -name hyperframes -not -path '*/node_modules/.bin/*' -print || true
+
+            exit 1
+          fi
+
+          echo "$bin_dir" >> "$GITHUB_PATH"
+          export PATH="$bin_dir:$PATH"
+
+          hyperframes --version || true
 
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -44,68 +138,80 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Instalar HyperFrames CLI e Lambda adapter
+      - name: Exportar AWS_REGION para os próximos passos
         run: |
-          npm install -g hyperframes@latest
-          npm install -g @hyperframes/aws-lambda@latest
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
 
-      # Este único comando builda o handler.zip, roda o SAM deploy e grava
-      # o arquivo de estado (.hyperframes/lambda-stack-hyperframes-lambda.json).
-      # Os steps antigos "Deploy via SAM" e "Build do handler.zip" foram
-      # removidos por serem redundantes com este.
-      # --concurrency=-1 é explícito de propósito: o CLI usa 8 como padrão
-      # interno mesmo quando essa flag é omitida, e a cota da conta ainda
-      # não suporta reservar concorrência (piso mínimo de 10 não-reservado).
-      - name: Deploy da stack Lambda (build do zip + SAM deploy + gera arquivo de estado)
+      - name: Deploy da stack Lambda
         run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+
           hyperframes lambda deploy \
-            --stack-name=hyperframes-lambda \
-            --region=${{ secrets.AWS_REGION }} \
-            --memory=2048 \
-            --concurrency=-1
+            --stack-name="$STACK_NAME" \
+            --region="$AWS_REGION" \
+            --memory=2048
 
-      # Nome do bucket descoberto dinamicamente via CloudFormation, em vez
-      # de fixo no YAML — sobrevive a um destroy/deploy que gere um bucket
-      # com sufixo diferente.
       - name: Baixar video_teste.mp4 do S3
         run: |
-          BUCKET=$(aws cloudformation describe-stacks \
-            --stack-name hyperframes-lambda \
-            --region ${{ secrets.AWS_REGION }} \
+          set -euo pipefail
+
+          bucket="$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
-            --output text)
-          mkdir -p ${{ inputs.project_path }}/assets
-          aws s3 cp "s3://$BUCKET/assets/video_teste.mp4" \
-            ${{ inputs.project_path }}/assets/video_teste.mp4
+            --output text)"
+
+          if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
+            echo "::error::Output RenderBucketName não encontrado na stack $STACK_NAME."
+            aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" || true
+            exit 1
+          fi
+
+          mkdir -p "$ABS_PROJECT_PATH/assets"
+          aws s3 cp "s3://$bucket/assets/video_teste.mp4" "$ABS_PROJECT_PATH/assets/video_teste.mp4"
 
       - name: Renderizar via Lambda
         run: |
-          hyperframes lambda render ${{ inputs.project_path }} \
-            --stack-name=hyperframes-lambda \
-            --region=${{ secrets.AWS_REGION }} \
-            --width ${{ inputs.width }} \
-            --height ${{ inputs.height }} \
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+
+          hyperframes lambda render "$ABS_PROJECT_PATH" \
+            --stack-name="$STACK_NAME" \
+            --region="$AWS_REGION" \
+            --width "$WIDTH" \
+            --height "$HEIGHT" \
             --fps 30 \
             --format mp4 \
             --wait --json | tee render-output.json
 
-      # Passo novo: o render acontece inteiramente na AWS (Lambda + S3), o
-      # runner do GitHub nunca recebe o MP4 sozinho. Este step busca o
-      # resultado final do bucket antes do upload do artifact.
       - name: Baixar o MP4 renderizado do S3
         run: |
-          BUCKET=$(aws cloudformation describe-stacks \
-            --stack-name hyperframes-lambda \
-            --region ${{ secrets.AWS_REGION }} \
+          set -euo pipefail
+
+          bucket="$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
-            --output text)
-          mkdir -p ${{ inputs.project_path }}/renders
-          aws s3 cp "s3://$BUCKET/renders/" ${{ inputs.project_path }}/renders/ \
+            --output text)"
+
+          if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
+            echo "::error::Output RenderBucketName não encontrado na stack $STACK_NAME."
+            exit 1
+          fi
+
+          mkdir -p "$ABS_PROJECT_PATH/renders"
+          aws s3 cp "s3://$bucket/renders/" "$ABS_PROJECT_PATH/renders/" \
             --recursive --exclude "*" --include "*.mp4"
+
+          if ! find "$ABS_PROJECT_PATH/renders" -type f -name '*.mp4' | grep -q .; then
+            echo "::error::Nenhum arquivo .mp4 foi baixado para $ABS_PROJECT_PATH/renders."
+            exit 1
+          fi
 
       - name: Upload do MP4 final
         uses: actions/upload-artifact@v4
         with:
           name: short-render
-          path: ${{ inputs.project_path }}/renders/**/*.mp4
+          path: ${{ env.ARTIFACT_RENDER_PATH }}
           retention-days: 7
