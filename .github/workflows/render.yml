@@ -207,15 +207,20 @@ jobs:
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
 
+                - name: Renderizar via Lambda
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+
           hyperframes lambda render "$ABS_PROJECT_PATH" \
-  --stack-name="$STACK_NAME" \
-  --region="$AWS_REGION" \
-  --width "$WIDTH" \
-  --height "$HEIGHT" \
-  --fps 30 \
-  --format mp4 \
-  --max-parallel-chunks=2 \
-  --wait --json | tee render-output.json
+            --stack-name="$STACK_NAME" \
+            --region="$AWS_REGION" \
+            --width "$WIDTH" \
+            --height "$HEIGHT" \
+            --fps 30 \
+            --format mp4 \
+            --max-parallel-chunks=2 \
+            --wait --json | tee render-output.json
 
       - name: Baixar o MP4 renderizado do S3
         run: |
