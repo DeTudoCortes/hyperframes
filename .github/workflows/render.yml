@@ -19,6 +19,8 @@ on:
 jobs:
   build-deploy-render:
     runs-on: ubuntu-latest
+    env:
+      HYPERFRAMES_REPO_ROOT: ${{ github.workspace }}
 
     steps:
       - name: Checkout do repositório
@@ -35,9 +37,6 @@ jobs:
       - name: Build do monorepo
         run: bun run build
 
-      - name: Build do handler.zip
-        run: bun run --cwd packages/aws-lambda build:zip
-
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -45,34 +44,35 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Deploy via SAM
-        run: |
-          cd examples/aws-lambda
-          sam deploy \
-            --stack-name hyperframes-lambda \
-            --region ${{ secrets.AWS_REGION }} \
-            --resolve-s3 \
-            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-            --no-confirm-changeset \
-            --no-fail-on-empty-changeset \
-            --parameter-overrides ChromeSource=sparticuz LambdaMemoryMb=2048
-
-      - name: Baixar video_teste.mp4 do S3
-        run: |
-          aws s3 cp s3://hyperframes-lambda-renderbucket-ufmvxztez6gg/assets/video_teste.mp4 \
-            ${{ inputs.project_path }}/assets/video_teste.mp4
-
       - name: Instalar HyperFrames CLI e Lambda adapter
         run: |
           npm install -g hyperframes@latest
           npm install -g @hyperframes/aws-lambda@latest
 
-      - name: Deploy da stack Lambda (gera arquivo de estado)
+      # Este único comando builda o handler.zip, roda o SAM deploy e grava
+      # o arquivo de estado (.hyperframes/lambda-stack-hyperframes-lambda.json).
+      # Os steps antigos "Deploy via SAM" e "Build do handler.zip" foram
+      # removidos por serem redundantes com este.
+      - name: Deploy da stack Lambda (build do zip + SAM deploy + gera arquivo de estado)
         run: |
           hyperframes lambda deploy \
             --stack-name=hyperframes-lambda \
             --region=${{ secrets.AWS_REGION }} \
             --memory=2048
+
+      # Nome do bucket descoberto dinamicamente via CloudFormation, em vez
+      # de fixo no YAML — sobrevive a um destroy/deploy que gere um bucket
+      # com sufixo diferente.
+      - name: Baixar video_teste.mp4 do S3
+        run: |
+          BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name hyperframes-lambda \
+            --region ${{ secrets.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
+            --output text)
+          mkdir -p ${{ inputs.project_path }}/assets
+          aws s3 cp "s3://$BUCKET/assets/video_teste.mp4" \
+            ${{ inputs.project_path }}/assets/video_teste.mp4
 
       - name: Renderizar via Lambda
         run: |
@@ -83,8 +83,21 @@ jobs:
             --height ${{ inputs.height }} \
             --fps 30 \
             --format mp4 \
-            --quality standard \
-            --wait
+            --wait --json | tee render-output.json
+
+      # Passo novo: o render acontece inteiramente na AWS (Lambda + S3), o
+      # runner do GitHub nunca recebe o MP4 sozinho. Este step busca o
+      # resultado final do bucket antes do upload do artifact.
+      - name: Baixar o MP4 renderizado do S3
+        run: |
+          BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name hyperframes-lambda \
+            --region ${{ secrets.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
+            --output text)
+          mkdir -p ${{ inputs.project_path }}/renders
+          aws s3 cp "s3://$BUCKET/renders/" ${{ inputs.project_path }}/renders/ \
+            --recursive --exclude "*" --include "*.mp4"
 
       - name: Upload do MP4 final
         uses: actions/upload-artifact@v4
