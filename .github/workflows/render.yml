@@ -62,9 +62,14 @@ jobs:
           aws s3 cp s3://hyperframes-lambda-renderbucket-ufmvxztez6gg/assets/video_teste.mp4 \
             ${{ inputs.project_path }}/assets/video_teste.mp4
 
+      - name: Instalar HyperFrames CLI e Lambda adapter
+        run: |
+          npm install -g hyperframes@latest
+          npm install -g @hyperframes/aws-lambda@latest
+
       - name: Renderizar via Lambda
         run: |
-          npx hyperframes lambda render ${{ inputs.project_path }} \
+          hyperframes lambda render ${{ inputs.project_path }} \
             --stack-name=hyperframes-lambda \
             --region=${{ secrets.AWS_REGION }} \
             --width ${{ inputs.width }} \
