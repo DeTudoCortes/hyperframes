@@ -48,8 +48,7 @@ jobs:
 
       - name: Renderizar via Lambda
         run: |
-          hyperframes lambda render \
-            ${{ inputs.project_path }} \
+          hyperframes lambda render ${{ github.workspace }}/${{ inputs.project_path }} \
             --stack-name hyperframes-lambda \
             --region ${{ secrets.AWS_REGION }} \
             --width ${{ inputs.width }} \
