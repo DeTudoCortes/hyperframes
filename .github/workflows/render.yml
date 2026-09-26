@@ -17,7 +17,7 @@ on:
         default: '1920'
 
 jobs:
-  render:
+  deploy-and-render:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,7 +33,7 @@ jobs:
         run: |
           npm install -g hyperframes@latest
           npm install -g @hyperframes/aws-lambda@latest
-          
+
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -46,11 +46,18 @@ jobs:
           aws s3 cp s3://hyperframes-lambda-renderbucket-ufmvxztez6gg/assets/video_teste.mp4 \
             ${{ inputs.project_path }}/assets/video_teste.mp4
 
+      - name: Deploy da stack Lambda
+        run: |
+          hyperframes lambda deploy \
+            --stack-name=hyperframes-lambda \
+            --region=${{ secrets.AWS_REGION }} \
+            --skip-build
+
       - name: Renderizar via Lambda
         run: |
-          hyperframes lambda render ${{ github.workspace }}/${{ inputs.project_path }} \
-            --stack-name hyperframes-lambda \
-            --region ${{ secrets.AWS_REGION }} \
+          hyperframes lambda render ${{ inputs.project_path }} \
+            --stack-name=hyperframes-lambda \
+            --region=${{ secrets.AWS_REGION }} \
             --width ${{ inputs.width }} \
             --height ${{ inputs.height }} \
             --fps 30 \
