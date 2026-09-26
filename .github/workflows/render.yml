@@ -53,12 +53,16 @@ jobs:
       # o arquivo de estado (.hyperframes/lambda-stack-hyperframes-lambda.json).
       # Os steps antigos "Deploy via SAM" e "Build do handler.zip" foram
       # removidos por serem redundantes com este.
+      # --concurrency=-1 é explícito de propósito: o CLI usa 8 como padrão
+      # interno mesmo quando essa flag é omitida, e a cota da conta ainda
+      # não suporta reservar concorrência (piso mínimo de 10 não-reservado).
       - name: Deploy da stack Lambda (build do zip + SAM deploy + gera arquivo de estado)
         run: |
           hyperframes lambda deploy \
             --stack-name=hyperframes-lambda \
             --region=${{ secrets.AWS_REGION }} \
-            --memory=2048
+            --memory=2048 \
+            --concurrency=-1
 
       # Nome do bucket descoberto dinamicamente via CloudFormation, em vez
       # de fixo no YAML — sobrevive a um destroy/deploy que gere um bucket
