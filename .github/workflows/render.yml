@@ -109,6 +109,12 @@ jobs:
           cd "$HYPERFRAMES_REPO_ROOT"
           bun run build
 
+      - name: Build do handler.zip
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+          bun run --cwd packages/aws-lambda build:zip
+
       - name: Instalar HyperFrames CLI e Lambda adapter
         run: |
           set -euo pipefail
@@ -126,6 +132,20 @@ jobs:
       - name: Exportar AWS_REGION para os próximos passos
         run: |
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
+
+      - name: Deploy da stack Lambda via SAM
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT/examples/aws-lambda"
+
+          sam deploy \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides ChromeSource=sparticuz LambdaMemoryMb=2048
 
       - name: Gerar arquivo de estado do HyperFrames
         run: |
