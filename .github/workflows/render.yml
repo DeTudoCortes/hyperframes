@@ -39,7 +39,7 @@ jobs:
       - name: Instalar Bun
         uses: oven-sh/setup-bun@v1
 
-            - name: Descobrir raiz do HyperFrames
+      - name: Descobrir raiz do HyperFrames
         id: discover
         run: |
           set -euo pipefail
@@ -182,11 +182,6 @@ jobs:
           aws s3 cp "s3://$bucket/assets/video_teste.mp4" "$ABS_PROJECT_PATH/assets/video_teste.mp4"
 
       - name: Renderizar via Lambda
-        run: |
-          set -euo pipefail
-          cd "$HYPERFRAMES_REPO_ROOT"
-
-                - name: Renderizar via Lambda
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
