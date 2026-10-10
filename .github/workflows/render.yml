@@ -124,7 +124,7 @@ jobs:
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --parameter-overrides ChromeSource=sparticuz LambdaMemoryMb=3008
+            --parameter-overrides ChromeSource=sparticuz LambdaMemoryMb=3072
 
       - name: Gerar arquivo de estado do HyperFrames
         run: |
