@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "hyperframes-monorepo",
+      "dependencies": {
+        "@hyperframes/producer": "workspace:*",
+      },
       "devDependencies": {
         "@commitlint/cli": "^20.5.0",
         "@commitlint/config-conventional": "^20.5.0",
