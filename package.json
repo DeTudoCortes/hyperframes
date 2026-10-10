@@ -63,21 +63,21 @@
     "lint:registry-items": "node scripts/lint-registry-items.mjs"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.5.3",
-    "@commitlint/config-conventional": "^20.5.3",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@hyperframes/player": "workspace:*",
-    "@types/node": "^25.9.9",
-    "concurrently": "^8.2.2",
-    "fallow": "^2.104.0",
-    "happy-dom": "^20.14.6",
-    "knip": "^6.41.0",
-    "lefthook": "^2.2.1",
+    "@types/node": "^25.0.10",
+    "concurrently": "^8.2.0",
+    "fallow": "^2.75.0",
+    "happy-dom": "^20.9.0",
+    "knip": "^6.0.3",
+    "lefthook": "^2.1.4",
     "oxfmt": "^0.41.0",
-    "oxlint": "^1.87.0",
-    "tsx": "^4.23.15",
-    "typescript": "^5.9.3",
+    "oxlint": "^1.56.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.0.0",
     "vitest": "^4.1.11",
-    "yaml": "^2.9.1"
+    "yaml": "^2.9.0"
   },
   "resolutions": {
     "@types/react": "^19.0.0",
@@ -92,7 +92,6 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@codemirror/view": "6.40.0",
     "@hyperframes/producer": "workspace:*"
   }
 }
