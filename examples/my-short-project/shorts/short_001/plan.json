@@ -1,0 +1,336 @@
+{
+  "short_id": "short_001",
+  "source_video_id": "video_teste",
+  "status": "draft",
+  "created_at": "2026-10-04T19:52:48.006760+00:00",
+  "updated_at": "2026-10-04T20:57:11.521407+00:00",
+  "video_source": "assets/video_limpo.mp4",
+  "duration_ms": 41600,
+  "source_reference": {
+    "original_video": "videos_originais/video_teste.mp4",
+    "original_start_ms": 6000,
+    "original_end_ms": 48000,
+    "silences_removed_ms": 400,
+    "silences_count": 1
+  },
+  "character_images": [
+    {
+      "position": "left",
+      "image_filename": "assets/download1.jfif",
+      "character_name": "Fontinelli",
+      "object_position": "center 30%",
+      "translate_x_percent": 8,
+      "scale": 1.15
+    },
+    {
+      "position": "right",
+      "image_filename": "assets/Júlio Balestrin.jfif",
+      "character_name": "Fontinelli com coroa",
+      "object_position": "center 30%",
+      "translate_x_percent": 15,
+      "scale": 1.15
+    }
+  ],
+  "headline": {
+    "text": "TESTE DE PIPELINE",
+    "background_color": "#FF0000",
+    "text_color": "#FFFFFF",
+    "font_size": 52,
+    "position_top_percent": 35,
+    "width_percent": 88,
+    "border_radius_px": 18
+  },
+  "body_clip": {
+    "start_ms": 6000,
+    "end_ms": 48000,
+    "object_position": "center 60%",
+    "top_percent": 35,
+    "height_percent": 65
+  },
+  "captions": [
+    {
+      "start_ms": 700,
+      "end_ms": 4203,
+      "words": [
+        "QUALQUER",
+        "COISA",
+        "TEM",
+        "OUTRO",
+        "AVIÃO",
+        "ALI."
+      ]
+    },
+    {
+      "start_ms": 4223,
+      "end_ms": 5284,
+      "words": [
+        "SABE",
+        "MEXER",
+        "COM",
+        "ESSE",
+        "NEGÓCIO,",
+        "CARA?"
+      ]
+    },
+    {
+      "start_ms": 5304,
+      "end_ms": 6145,
+      "words": [
+        "É",
+        "O",
+        "PROBLEMA",
+        "AQUI,",
+        "CARA."
+      ]
+    },
+    {
+      "start_ms": 6165,
+      "end_ms": 7065,
+      "words": [
+        "O",
+        "GABRIEL",
+        "FUROU",
+        "O",
+        "PNEU."
+      ]
+    },
+    {
+      "start_ms": 7085,
+      "end_ms": 8346,
+      "words": [
+        "FOI",
+        "VOCÊ",
+        "QUE",
+        "FUROU,",
+        "VOCÊ",
+        "QUE",
+        "TAVA",
+        "DIRIGINDO."
+      ]
+    },
+    {
+      "start_ms": 8366,
+      "end_ms": 9868,
+      "words": [
+        "VOCÊ",
+        "QUE",
+        "FUROU,",
+        "CARA.",
+        "TOTALMENTE",
+        "DESCONTROLADO,",
+        "CARA."
+      ]
+    },
+    {
+      "start_ms": 9888,
+      "end_ms": 14111,
+      "words": [
+        "VOCÊ",
+        "QUE",
+        "FUROU,",
+        "CARA."
+      ]
+    },
+    {
+      "start_ms": 14131,
+      "end_ms": 16253,
+      "words": [
+        "AÍ",
+        "ELE",
+        "FUROU",
+        "O",
+        "PNEU."
+      ]
+    },
+    {
+      "start_ms": 16273,
+      "end_ms": 17294,
+      "words": [
+        "OLHA",
+        "AQUI,",
+        "FÁBIO,",
+        "O",
+        "PROBLEMA."
+      ]
+    },
+    {
+      "start_ms": 17314,
+      "end_ms": 18995,
+      "words": [
+        "NÓS",
+        "TÁ",
+        "VINDO",
+        "AQUI",
+        "NESSA",
+        "DIREÇÃO",
+        "AQUI,"
+      ]
+    },
+    {
+      "start_ms": 19435,
+      "end_ms": 20697,
+      "words": [
+        "Ó.",
+        "RESTAURANTE",
+        "ALQUIM..."
+      ]
+    },
+    {
+      "start_ms": 20797,
+      "end_ms": 21477,
+      "words": [
+        "É",
+        "CONTRAMÃO",
+        "AQUI?",
+        "É."
+      ]
+    },
+    {
+      "start_ms": 22218,
+      "end_ms": 23719,
+      "words": [
+        "PUTA",
+        "QUE...",
+        "COMEÇOU",
+        "E",
+        "JÁ",
+        "É",
+        "ERRADO."
+      ]
+    },
+    {
+      "start_ms": 23739,
+      "end_ms": 25881,
+      "words": [
+        "TÁ",
+        "VENDO?",
+        "NOSSA",
+        "SENHORA."
+      ]
+    },
+    {
+      "start_ms": 25901,
+      "end_ms": 28123,
+      "words": [
+        "AÍ",
+        "ESSE",
+        "DEMÔNIO",
+        "AQUI,",
+        "DESSES",
+        "DEMONIADOS",
+        "AQUI",
+        "FUROU."
+      ]
+    },
+    {
+      "start_ms": 28723,
+      "end_ms": 30104,
+      "words": [
+        "E",
+        "AÍ",
+        "DESSE",
+        "PROBLEMA",
+        "AÍ,",
+        "FLAVINHO,",
+        "AGORA?"
+      ]
+    },
+    {
+      "start_ms": 30124,
+      "end_ms": 31806,
+      "words": [
+        "NÃO,",
+        "MAS",
+        "ISSO",
+        "AQUI",
+        "NÃO",
+        "É",
+        "DEMORADA,"
+      ]
+    },
+    {
+      "start_ms": 31926,
+      "end_ms": 33007,
+      "words": [
+        "É",
+        "QUEM",
+        "PASSOU",
+        "NELE."
+      ]
+    },
+    {
+      "start_ms": 33487,
+      "end_ms": 34548,
+      "words": [
+        "BOA,",
+        "GAROTO!"
+      ]
+    },
+    {
+      "start_ms": 34789,
+      "end_ms": 35990,
+      "words": [
+        "OLHA",
+        "AÍ,",
+        "FLAVINHO."
+      ]
+    },
+    {
+      "start_ms": 36010,
+      "end_ms": 36750,
+      "words": [
+        "BOA,",
+        "GAROTO."
+      ]
+    },
+    {
+      "start_ms": 36770,
+      "end_ms": 37991,
+      "words": [
+        "VOCÊ",
+        "É",
+        "AMIGO",
+        "OU",
+        "INIMIGO,",
+        "FLAVINHO?"
+      ]
+    },
+    {
+      "start_ms": 38132,
+      "end_ms": 39813,
+      "words": [
+        "NÃO,",
+        "MAS",
+        "O",
+        "CARRO",
+        "PASSOU",
+        "SOZINHO."
+      ]
+    },
+    {
+      "start_ms": 40113,
+      "end_ms": 41600,
+      "words": [
+        "É",
+        "UMA",
+        "CHAVE",
+        "SEGREDA",
+        "QUE",
+        "VAI..."
+      ]
+    }
+  ],
+  "caption_style": {
+    "position_top_percent": 62,
+    "font_size": 64,
+    "highlight_color_start": "#ff1745",
+    "highlight_color_end": "#df1238",
+    "keep_position_when_no_character": true
+  },
+  "global_style": {
+    "aspect_ratio": "9:16",
+    "font_family": "IBM Plex Sans",
+    "font_weight": 900
+  },
+  "history": []
+}
