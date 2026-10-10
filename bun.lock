@@ -5,6 +5,7 @@
     "": {
       "name": "hyperframes-monorepo",
       "dependencies": {
+        "@codemirror/view": "6.40.0",
         "@hyperframes/producer": "workspace:*",
       },
       "devDependencies": {
