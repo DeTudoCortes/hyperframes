@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       project_path:
-        description: 'Caminho do projeto dentro do repo'
+        description: "Caminho do projeto dentro do repo"
         required: true
-        default: 'examples/my-short-project'
+        default: "examples/my-short-project"
       width:
-        description: 'Largura em pixels'
+        description: "Largura em pixels"
         required: true
-        default: '1080'
+        default: "1080"
       height:
-        description: 'Altura em pixels'
+        description: "Altura em pixels"
         required: true
-        default: '1920'
+        default: "1920"
 
 permissions:
   contents: read
@@ -162,7 +162,7 @@ jobs:
           echo "Arquivo de estado gerado:"
           cat "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json"
 
-      - name: Baixar video_teste.mp4 do S3
+      - name: Baixar short do S3
         run: |
           set -euo pipefail
 
@@ -178,8 +178,16 @@ jobs:
             exit 1
           fi
 
-          mkdir -p "$ABS_PROJECT_PATH/assets"
-          aws s3 cp "s3://$bucket/assets/video_teste.mp4" "$ABS_PROJECT_PATH/assets/video_teste.mp4"
+          # Extrai o short_id do project_path (ex: examples/my-short-project/shorts/short_007 -> short_007)
+          short_id="$(basename "$ABS_PROJECT_PATH")"
+          echo "Short ID: $short_id"
+
+          # Baixa a pasta inteira do short (plan.json, index.html, assets/)
+          mkdir -p "$ABS_PROJECT_PATH"
+          aws s3 sync "s3://$bucket/assets-source/$short_id/" "$ABS_PROJECT_PATH/"
+
+          echo "=== Conteúdo baixado ==="
+          find "$ABS_PROJECT_PATH" -type f -exec ls -la {} \;
 
       - name: Renderizar via Lambda
         run: |
