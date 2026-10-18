@@ -204,7 +204,7 @@ jobs:
             --max-parallel-chunks=32 \
             --wait --json | tee render-output.json
 
-            - name: Baixar o MP4 renderizado do S3
+      - name: Baixar o MP4 renderizado do S3
         run: |
           set -euo pipefail
 
