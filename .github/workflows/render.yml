@@ -217,6 +217,27 @@ jobs:
             --max-parallel-chunks=4 \
             --wait --json | tee render-output.json
 
+      - name: Salvar UUID do render no S3
+        run: |
+          set -euo pipefail
+          bucket="$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "us-east-1" \
+            --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
+            --output text)"
+          
+          short_id="$(basename "$ABS_PROJECT_PATH")"
+          
+          # Extrai o UUID do render-output.json
+          UUID=$(python -c "import json; d=json.load(open('render-output.json')); print(d.get('id') or d.get('renderId') or d.get('outputFile',{}).get('s3Uri','').split('/')[-2])" 2>/dev/null || echo "")
+          
+          if [ -z "$UUID" ] || [ "$UUID" = "None" ]; then
+            echo "::warning::UUID não encontrado no render-output.json. Pulando."
+          else
+            echo "UUID do render: $UUID"
+            echo "$UUID" | aws s3 cp - "s3://$bucket/shorts/$short_id/last_render.txt"
+          fi
+     
       - name: Baixar o MP4 renderizado do S3
         run: |
           set -euo pipefail
