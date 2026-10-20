@@ -29,11 +29,14 @@ jobs:
       HEIGHT: ${{ inputs.height }}
       STACK_NAME: hyperframes-lambda
       HYPERFRAMES_REPO_ROOT: ${{ github.workspace }}
+      # Variável única para garantir consistência absoluta de versão em todo o pipeline
+      HYPERFRAMES_VERSION: "0.8.179"
 
     steps:
-      - name: Checkout do repositório
+      - name: Checkout do repositório (na tag da versão fixada)
         uses: actions/checkout@v4
         with:
+          ref: v${{ env.HYPERFRAMES_VERSION }}
           lfs: true
 
       - name: Instalar Bun
@@ -84,10 +87,39 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          # Usando vars em vez de secrets para melhor legibilidade nos logs, conforme solicitado
+          aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Exportar AWS_REGION
-        run: echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
+      - name: Limpar stack presa em rollback, se houver
+        run: |
+          set -euo pipefail
+          status=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}" \
+            --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "NOT_FOUND")
+          if [ "$status" = "ROLLBACK_COMPLETE" ] || [ "$status" = "ROLLBACK_FAILED" ]; then
+            echo "Stack em $status — deletando antes de recriar."
+            aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}"
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}"
+          fi
+
+      - name: Build do handler.zip
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+          bun run --cwd packages/aws-lambda build:zip
+
+      - name: Deploy via SAM (Idempotente)
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT/examples/aws-lambda"
+          sam deploy \
+            --stack-name "$STACK_NAME" \
+            --region "${{ vars.AWS_REGION }}" \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides ChromeSource=sparticuz ReservedConcurrency=-1 LambdaMemoryMb=2048
 
       - name: Limpar estados antigos do HyperFrames
         run: |
@@ -101,23 +133,24 @@ jobs:
           set -euo pipefail
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "$AWS_REGION" \
+            --region "${{ vars.AWS_REGION }}" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
           state_machine_arn="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "$AWS_REGION" \
+            --region "${{ vars.AWS_REGION }}" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderStateMachineArn`].OutputValue' \
             --output text)"
           function_arn="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "$AWS_REGION" \
+            --region "${{ vars.AWS_REGION }}" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderFunctionArn`].OutputValue' \
             --output text)"
+          
           cat > "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json" <<EOF
           {
             "stackName": "$STACK_NAME",
-            "region": "$AWS_REGION",
+            "region": "${{ vars.AWS_REGION }}",
             "stateMachineArn": "$state_machine_arn",
             "bucketName": "$bucket",
             "functionArn": "$function_arn"
@@ -129,7 +162,7 @@ jobs:
           set -euo pipefail
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "$AWS_REGION" \
+            --region "${{ vars.AWS_REGION }}" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
           if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
@@ -142,26 +175,39 @@ jobs:
 
       - name: Instalar HyperFrames CLI + Lambda adapter (fixados)
         run: |
-          npm install -g hyperframes@0.8.179
-          npm install -g @hyperframes/aws-lambda@0.8.179
+          set -euo pipefail
+          npm install -g hyperframes@${{ env.HYPERFRAMES_VERSION }}
+          npm install -g @hyperframes/aws-lambda@${{ env.HYPERFRAMES_VERSION }}
 
-      - name: Renderizar via Lambda (Binário Global)
+      - name: Confirmar versão do CLI instalada
         run: |
           set -euo pipefail
-          cd "$HYPERFRAMES_REPO_ROOT"
+          installed=$(hyperframes --version)
+          expected="${{ env.HYPERFRAMES_VERSION }}"
+          if [ "$installed" != "$expected" ]; then
+            echo "::error::CLI instalado ($installed) não bate com a versão esperada ($expected)."
+            exit 1
+          fi
+          echo "Versão do CLI confirmada: $installed"
+
+      - name: Renderizar via Lambda (Binário Global)
+        env:
+          # Esvazia a variável para forçar o uso do binário global e evitar resolução local ambígua
+          HYPERFRAMES_REPO_ROOT: ""
+        run: |
+          set -euo pipefail
           
           echo "Stack configurada para render:"
-          cat ".hyperframes/lambda-stack-$STACK_NAME.json"
+          cat "$GITHUB_WORKSPACE/.hyperframes/lambda-stack-$STACK_NAME.json"
           
-          # Usa o binário global (que encontra o adaptador global)
           hyperframes lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
-            --region="$AWS_REGION" \
+            --region="${{ vars.AWS_REGION }}" \
             --width "$WIDTH" \
             --height "$HEIGHT" \
             --fps 30 \
             --format mp4 \
-            --max-parallel-chunks=32 \
+            --max-parallel-chunks=4 \
             --wait --json | tee render-output.json
 
       - name: Baixar o MP4 renderizado do S3
@@ -169,7 +215,7 @@ jobs:
           set -euo pipefail
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "$AWS_REGION" \
+            --region "${{ vars.AWS_REGION }}" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
           mkdir -p "$ABS_PROJECT_PATH/renders"
