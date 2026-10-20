@@ -66,9 +66,6 @@ jobs:
           echo "HYPERFRAMES_REPO_ROOT=$found" >> "$GITHUB_ENV"
           echo "ABS_PROJECT_PATH=$abs_project_path" >> "$GITHUB_ENV"
           echo "ARTIFACT_RENDER_PATH=$artifact_render_path" >> "$GITHUB_ENV"
-          echo "Raiz: $found"
-          echo "Projeto: $abs_project_path"
-          echo "Artifact: $artifact_render_path"
 
       - name: Instalar dependências
         run: |
@@ -95,25 +92,36 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Exportar AWS_REGION para os próximos passos
-        run: |
-          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
+      - name: Exportar AWS_REGION
+        run: echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
 
+      # 🛠️ ALTERAÇÃO 1: Limpar estados antigos para evitar conflito de nomes
+      - name: Limpar estados antigos do HyperFrames
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+          rm -rf .hyperframes/lambda-stack-*.json
+          mkdir -p .hyperframes
+
+      # 🛠️ ALTERAÇÃO 2: Usar o binário local (bunx) em vez de instalar versão global antiga
       - name: Deploy da stack Lambda via CLI
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
-          npm install -g hyperframes@0.8.179 @hyperframes/aws-lambda@0.8.179
-          hyperframes lambda deploy \
+          
+          # Usa a versão local construída no passo anterior, garantindo compatibilidade total
+          bunx hyperframes lambda deploy \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --memory=2048
+            
           echo "Deploy concluído com sucesso."
+          echo "Arquivo de estado gerado pelo deploy:"
+          cat ".hyperframes/lambda-stack-$STACK_NAME.json" || true
 
-      - name: Gerar arquivo de estado do HyperFrames
+      - name: Gerar arquivo de estado do HyperFrames (Backup/Confirmação)
         run: |
           set -euo pipefail
-          mkdir -p "$HYPERFRAMES_REPO_ROOT/.hyperframes"
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --region "$AWS_REGION" \
@@ -129,6 +137,7 @@ jobs:
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderFunctionArn`].OutputValue' \
             --output text)"
+          
           cat > "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json" <<EOF
           {
             "stackName": "$STACK_NAME",
@@ -138,8 +147,6 @@ jobs:
             "functionArn": "$function_arn"
           }
           EOF
-          echo "Arquivo de estado gerado:"
-          cat "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json"
 
       - name: Baixar short do S3
         run: |
@@ -151,21 +158,23 @@ jobs:
             --output text)"
           if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
             echo "::error::Output RenderBucketName não encontrado na stack $STACK_NAME."
-            aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" || true
             exit 1
           fi
           short_id="$(basename "$ABS_PROJECT_PATH")"
-          echo "Short ID: $short_id"
           mkdir -p "$ABS_PROJECT_PATH"
           aws s3 sync "s3://$bucket/assets-source/$short_id/" "$ABS_PROJECT_PATH/"
-          echo "=== Conteúdo baixado ==="
-          find "$ABS_PROJECT_PATH" -type f -exec ls -la {} \;
 
+      # 🛠️ ALTERAÇÃO 3: Garantir que o render use o mesmo binário local
       - name: Renderizar via Lambda
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
-          hyperframes lambda render "$ABS_PROJECT_PATH" \
+          
+          # Verifica qual stack está sendo lida antes de renderizar
+          echo "Stack configurada para render:"
+          cat ".hyperframes/lambda-stack-$STACK_NAME.json"
+          
+          bunx hyperframes lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --width "$WIDTH" \
@@ -183,16 +192,13 @@ jobs:
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
-          if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
-            echo "::error::Output RenderBucketName não encontrado na stack $STACK_NAME."
-            exit 1
-          fi
           mkdir -p "$ABS_PROJECT_PATH/renders"
           aws s3 cp "s3://$bucket/renders/" "$ABS_PROJECT_PATH/renders/" \
             --recursive --exclude "*" --include "*.mp4"
+          
           mp4_count=$(find "$ABS_PROJECT_PATH/renders" -type f -name '*.mp4' | wc -l)
           if [ "$mp4_count" -eq 0 ]; then
-            echo "::error::Nenhum arquivo .mp4 foi baixado para $ABS_PROJECT_PATH/renders."
+            echo "::error::Nenhum arquivo .mp4 foi baixado."
             exit 1
           fi
           echo "Total de .mp4 baixados: $mp4_count"
