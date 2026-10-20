@@ -43,7 +43,6 @@ jobs:
         id: discover
         run: |
           set -euo pipefail
-
           found=""
           for candidate in "$HYPERFRAMES_REPO_ROOT" "$GITHUB_WORKSPACE"; do
             if [ -n "$candidate" ] && [ -d "$candidate/packages/aws-lambda" ]; then
@@ -51,27 +50,22 @@ jobs:
               break
             fi
           done
-
           if [ -z "$found" ]; then
             found="$GITHUB_WORKSPACE"
           fi
-
           abs_project_path="$PROJECT_PATH"
           case "$abs_project_path" in
             /*) ;;
             *) abs_project_path="$found/$PROJECT_PATH" ;;
           esac
-
           if [ "${abs_project_path#"$GITHUB_WORKSPACE/"}" != "$abs_project_path" ]; then
             artifact_render_path="${abs_project_path#"$GITHUB_WORKSPACE/"}/renders/**/*.mp4"
           else
             artifact_render_path="$abs_project_path/renders/**/*.mp4"
           fi
-
           echo "HYPERFRAMES_REPO_ROOT=$found" >> "$GITHUB_ENV"
           echo "ABS_PROJECT_PATH=$abs_project_path" >> "$GITHUB_ENV"
           echo "ARTIFACT_RENDER_PATH=$artifact_render_path" >> "$GITHUB_ENV"
-
           echo "Raiz: $found"
           echo "Projeto: $abs_project_path"
           echo "Artifact: $artifact_render_path"
@@ -94,13 +88,6 @@ jobs:
           cd "$HYPERFRAMES_REPO_ROOT"
           bun run --cwd packages/aws-lambda build:zip
 
-      - name: Instalar HyperFrames CLI e Lambda adapter
-        run: |
-          set -euo pipefail
-          npm install -g hyperframes@latest
-          npm install -g @hyperframes/aws-lambda@0.8.179
-          hyperframes --version
-
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -112,45 +99,36 @@ jobs:
         run: |
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
 
-            - name: Deploy da stack Lambda via CLI
+      - name: Deploy da stack Lambda via CLI
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
-          
-          # Instala CLI e adaptador globalmente na mesma versão
           npm install -g hyperframes@0.8.179 @hyperframes/aws-lambda@0.8.179
-          
-          # Roda o deploy usando o binário global
           hyperframes lambda deploy \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --memory=2048
-          
           echo "Deploy concluído com sucesso."
-      
+
       - name: Gerar arquivo de estado do HyperFrames
         run: |
           set -euo pipefail
           mkdir -p "$HYPERFRAMES_REPO_ROOT/.hyperframes"
-
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
-
           state_machine_arn="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderStateMachineArn`].OutputValue' \
             --output text)"
-
           function_arn="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderFunctionArn`].OutputValue' \
             --output text)"
-
           cat > "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json" <<EOF
           {
             "stackName": "$STACK_NAME",
@@ -160,47 +138,33 @@ jobs:
             "functionArn": "$function_arn"
           }
           EOF
-
           echo "Arquivo de estado gerado:"
           cat "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json"
 
       - name: Baixar short do S3
         run: |
           set -euo pipefail
-
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
-
           if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
             echo "::error::Output RenderBucketName não encontrado na stack $STACK_NAME."
             aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" || true
             exit 1
           fi
-
-          # Extrai o short_id do project_path (ex: examples/my-short-project/shorts/short_007 -> short_007)
           short_id="$(basename "$ABS_PROJECT_PATH")"
           echo "Short ID: $short_id"
-
-          # Baixa a pasta inteira do short (plan.json, index.html, assets/)
           mkdir -p "$ABS_PROJECT_PATH"
           aws s3 sync "s3://$bucket/assets-source/$short_id/" "$ABS_PROJECT_PATH/"
-
           echo "=== Conteúdo baixado ==="
           find "$ABS_PROJECT_PATH" -type f -exec ls -la {} \;
 
-      
       - name: Renderizar via Lambda
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
-
-          # Instala CLI e adaptador juntos globalmente
-          npm install -g hyperframes@0.8.179 @hyperframes/aws-lambda@0.8.179
-          
-          # Usa o binário global (não o npx)
           hyperframes lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
@@ -214,33 +178,28 @@ jobs:
       - name: Baixar o MP4 renderizado do S3
         run: |
           set -euo pipefail
-
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
-
           if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
             echo "::error::Output RenderBucketName não encontrado na stack $STACK_NAME."
             exit 1
           fi
-
           mkdir -p "$ABS_PROJECT_PATH/renders"
           aws s3 cp "s3://$bucket/renders/" "$ABS_PROJECT_PATH/renders/" \
             --recursive --exclude "*" --include "*.mp4"
-
           mp4_count=$(find "$ABS_PROJECT_PATH/renders" -type f -name '*.mp4' | wc -l)
           if [ "$mp4_count" -eq 0 ]; then
             echo "::error::Nenhum arquivo .mp4 foi baixado para $ABS_PROJECT_PATH/renders."
             exit 1
           fi
-
           echo "Total de .mp4 baixados: $mp4_count"
 
       - name: Upload do MP4 final
         uses: actions/upload-artifact@v4
         with:
-          name: short-render-${{ github.run_id }}  # <-- Nome único por execução!
+          name: short-render-${{ github.run_id }}
           path: ${{ env.ARTIFACT_RENDER_PATH }}
           retention-days: 7
