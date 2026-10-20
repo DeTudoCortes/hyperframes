@@ -29,18 +29,27 @@ jobs:
       HEIGHT: ${{ inputs.height }}
       STACK_NAME: hyperframes-lambda
       HYPERFRAMES_REPO_ROOT: ${{ github.workspace }}
-      # Variável única para garantir consistência absoluta de versão em todo o pipeline
-      HYPERFRAMES_VERSION: "0.8.179"
 
     steps:
-      - name: Checkout do repositório (na tag da versão fixada)
+      - name: Checkout do repositório
         uses: actions/checkout@v4
         with:
-          ref: v${{ env.HYPERFRAMES_VERSION }}
           lfs: true
+          # Se você souber o nome EXATO da tag no seu repo (ex: "0.8.179" sem o "v"), descomente a linha abaixo:
+          # ref: 0.8.179
 
       - name: Instalar Bun
         uses: oven-sh/setup-bun@v1
+
+      - name: Detectar versão do HyperFrames no código local
+        id: get_version
+        run: |
+          set -euo pipefail
+          cd "$HYPERFRAMES_REPO_ROOT"
+          # Lê a versão do package.json da CLI (ou do root, como fallback)
+          VERSION=$(node -p "require('./packages/cli/package.json').version" 2>/dev/null || node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "✅ Versão detectada no código: $VERSION"
 
       - name: Descobrir raiz do HyperFrames
         id: discover
@@ -87,7 +96,6 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # Usando vars em vez de secrets para melhor legibilidade nos logs, conforme solicitado
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Limpar stack presa em rollback, se houver
@@ -97,7 +105,7 @@ jobs:
             --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}" \
             --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "NOT_FOUND")
           if [ "$status" = "ROLLBACK_COMPLETE" ] || [ "$status" = "ROLLBACK_FAILED" ]; then
-            echo "Stack em $status — deletando antes de recriar."
+            echo "⚠️ Stack em $status — deletando antes de recriar."
             aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}"
             aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}"
           fi
@@ -173,22 +181,21 @@ jobs:
           mkdir -p "$ABS_PROJECT_PATH"
           aws s3 sync "s3://$bucket/assets-source/$short_id/" "$ABS_PROJECT_PATH/"
 
-      - name: Instalar HyperFrames CLI + Lambda adapter (fixados)
+      - name: Instalar HyperFrames CLI + Lambda adapter (versão sincronizada)
         run: |
           set -euo pipefail
-          npm install -g hyperframes@${{ env.HYPERFRAMES_VERSION }}
-          npm install -g @hyperframes/aws-lambda@${{ env.HYPERFRAMES_VERSION }}
-
-      - name: Confirmar versão do CLI instalada
-        run: |
-          set -euo pipefail
+          VERSION="${{ steps.get_version.outputs.version }}"
+          echo "📦 Instalando globalmente a versão exata do código: $VERSION"
+          npm install -g "hyperframes@$VERSION"
+          npm install -g "@hyperframes/aws-lambda@$VERSION"
+          
+          # Verificação de sanidade
           installed=$(hyperframes --version)
-          expected="${{ env.HYPERFRAMES_VERSION }}"
-          if [ "$installed" != "$expected" ]; then
-            echo "::error::CLI instalado ($installed) não bate com a versão esperada ($expected)."
+          if [ "$installed" != "$VERSION" ]; then
+            echo "::error::CLI instalado ($installed) não bate com a versão esperada ($VERSION)."
             exit 1
           fi
-          echo "Versão do CLI confirmada: $installed"
+          echo "✅ Versão do CLI confirmada: $installed"
 
       - name: Renderizar via Lambda (Binário Global)
         env:
@@ -197,7 +204,7 @@ jobs:
         run: |
           set -euo pipefail
           
-          echo "Stack configurada para render:"
+          echo "📂 Stack configurada para render:"
           cat "$GITHUB_WORKSPACE/.hyperframes/lambda-stack-$STACK_NAME.json"
           
           hyperframes lambda render "$ABS_PROJECT_PATH" \
@@ -227,7 +234,7 @@ jobs:
             echo "::error::Nenhum arquivo .mp4 foi baixado."
             exit 1
           fi
-          echo "Total de .mp4 baixados: $mp4_count"
+          echo "✅ Total de .mp4 baixados: $mp4_count"
 
       - name: Upload do MP4 final
         uses: actions/upload-artifact@v4
