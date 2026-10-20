@@ -112,13 +112,16 @@ jobs:
         run: |
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
 
-      - name: Deploy da stack Lambda (força atualização)
+            - name: Deploy da stack Lambda via CLI
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           
-          # Força o deploy da versão 0.8.179 (que baixa o ZIP pronto do GitHub)
-          npx hyperframes@0.8.179 lambda deploy \
+          # Instala CLI e adaptador globalmente na mesma versão
+          npm install -g hyperframes@0.8.179 @hyperframes/aws-lambda@0.8.179
+          
+          # Roda o deploy usando o binário global
+          hyperframes lambda deploy \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --memory=2048
