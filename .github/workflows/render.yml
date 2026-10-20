@@ -78,13 +78,7 @@ jobs:
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           bun run build
-
-      - name: Build do handler.zip
-        run: |
-          set -euo pipefail
-          cd "$HYPERFRAMES_REPO_ROOT"
-          bun run --cwd packages/aws-lambda build:zip
-
+  
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -169,6 +163,9 @@ jobs:
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
+          
+          # Instala o adaptador da AWS localmente (para o bunx encontrar)
+          bun add @hyperframes/aws-lambda@0.8.179
           
           # Verifica qual stack está sendo lida antes de renderizar
           echo "Stack configurada para render:"
