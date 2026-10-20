@@ -117,7 +117,8 @@ jobs:
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           
-          npx hyperframes lambda deploy \
+          # Força a versão que tem o deploy funcional
+          npx hyperframes@0.8.179 lambda deploy \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --memory=2048
