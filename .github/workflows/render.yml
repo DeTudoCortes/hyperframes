@@ -140,28 +140,21 @@ jobs:
           mkdir -p "$ABS_PROJECT_PATH"
           aws s3 sync "s3://$bucket/assets-source/$short_id/" "$ABS_PROJECT_PATH/"
 
-      - name: Renderizar via Lambda (Binário Local)
+      - name: Instalar HyperFrames CLI + Lambda adapter (fixados)
+        run: |
+          npm install -g hyperframes@0.8.179
+          npm install -g @hyperframes/aws-lambda@0.8.179
+
+      - name: Renderizar via Lambda (Binário Global)
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           
-          # Verifica se o binário da CLI foi buildado (o caminho pode variar)
-          if [ -f "packages/cli/dist/index.js" ]; then
-            CLI_PATH="packages/cli/dist/index.js"
-          elif [ -f "packages/cli/dist/cli.js" ]; then
-            CLI_PATH="packages/cli/dist/cli.js"
-          else
-            echo "::error::Binário da CLI não encontrado. O build do monorepo falhou."
-            ls -la packages/cli/dist/ || true
-            exit 1
-          fi
-          
-          echo "Usando CLI: $CLI_PATH"
           echo "Stack configurada para render:"
           cat ".hyperframes/lambda-stack-$STACK_NAME.json"
           
-          # Executa o render
-          node "$CLI_PATH" lambda render "$ABS_PROJECT_PATH" \
+          # Usa o binário global (que encontra o adaptador global)
+          hyperframes lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --width "$WIDTH" \
