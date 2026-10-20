@@ -98,21 +98,6 @@ jobs:
           mkdir -p .hyperframes
 
       # 🛠️ ALTERAÇÃO 2: Usar o binário local (bunx) em vez de instalar versão global antiga
-      - name: Deploy da stack Lambda via CLI
-        run: |
-          set -euo pipefail
-          cd "$HYPERFRAMES_REPO_ROOT"
-          
-          # Usa a versão local construída no passo anterior, garantindo compatibilidade total
-          bunx hyperframes lambda deploy \
-            --stack-name="$STACK_NAME" \
-            --region="$AWS_REGION" \
-            --memory=2048
-            
-          echo "Deploy concluído com sucesso."
-          echo "Arquivo de estado gerado pelo deploy:"
-          cat ".hyperframes/lambda-stack-$STACK_NAME.json" || true
-
       - name: Gerar arquivo de estado do HyperFrames (Backup/Confirmação)
         run: |
           set -euo pipefail
@@ -164,14 +149,15 @@ jobs:
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           
-          # Instala o adaptador da AWS localmente (para o bunx encontrar)
-          bun add @hyperframes/aws-lambda@0.8.179
+          # Instala CLI e adaptador globalmente (o binário global vai encontrá-los)
+          npm install -g hyperframes@0.8.179 @hyperframes/aws-lambda@0.8.179
           
-          # Verifica qual stack está sendo lida antes de renderizar
+          # Verifica a stack
           echo "Stack configurada para render:"
           cat ".hyperframes/lambda-stack-$STACK_NAME.json"
           
-          bunx hyperframes lambda render "$ABS_PROJECT_PATH" \
+          # Usa o binário global (não o bunx)
+          hyperframes lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --width "$WIDTH" \
@@ -180,7 +166,17 @@ jobs:
             --format mp4 \
             --max-parallel-chunks=32 \
             --wait --json | tee render-output.json
-
+          
+          # Usa o binário global (não o bunx)
+          hyperframes lambda render "$ABS_PROJECT_PATH" \
+            --stack-name="$STACK_NAME" \
+            --region="$AWS_REGION" \
+            --width "$WIDTH" \
+            --height "$HEIGHT" \
+            --fps 30 \
+            --format mp4 \
+            --max-parallel-chunks=32 \
+            --wait --json | tee render-output.json
       - name: Baixar o MP4 renderizado do S3
         run: |
           set -euo pipefail
