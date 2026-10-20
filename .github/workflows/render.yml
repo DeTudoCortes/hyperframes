@@ -112,16 +112,18 @@ jobs:
         run: |
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
 
-      - name: Deploy da stack Lambda via HyperFrames CLI
+      - name: Deploy da stack Lambda (força atualização)
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           
-          # Força a versão que tem o deploy funcional
+          # Força o deploy da versão 0.8.179 (que baixa o ZIP pronto do GitHub)
           npx hyperframes@0.8.179 lambda deploy \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --memory=2048
+          
+          echo "Deploy concluído com sucesso."
       
       - name: Gerar arquivo de estado do HyperFrames
         run: |
