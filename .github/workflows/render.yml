@@ -78,7 +78,7 @@ jobs:
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           bun run build
-  
+
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -89,7 +89,6 @@ jobs:
       - name: Exportar AWS_REGION
         run: echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> "$GITHUB_ENV"
 
-      # 🛠️ ALTERAÇÃO 1: Limpar estados antigos para evitar conflito de nomes
       - name: Limpar estados antigos do HyperFrames
         run: |
           set -euo pipefail
@@ -97,8 +96,7 @@ jobs:
           rm -rf .hyperframes/lambda-stack-*.json
           mkdir -p .hyperframes
 
-      # 🛠️ ALTERAÇÃO 2: Usar o binário local (bunx) em vez de instalar versão global antiga
-      - name: Gerar arquivo de estado do HyperFrames (Backup/Confirmação)
+      - name: Gerar arquivo de estado do HyperFrames
         run: |
           set -euo pipefail
           bucket="$(aws cloudformation describe-stacks \
@@ -116,7 +114,6 @@ jobs:
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderFunctionArn`].OutputValue' \
             --output text)"
-          
           cat > "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json" <<EOF
           {
             "stackName": "$STACK_NAME",
@@ -143,21 +140,28 @@ jobs:
           mkdir -p "$ABS_PROJECT_PATH"
           aws s3 sync "s3://$bucket/assets-source/$short_id/" "$ABS_PROJECT_PATH/"
 
-      # 🛠️ ALTERAÇÃO 3: Garantir que o render use o mesmo binário local
-      - name: Renderizar via Lambda
+      - name: Renderizar via Lambda (Binário Local)
         run: |
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
           
-          # Instala CLI e adaptador globalmente (o binário global vai encontrá-los)
-          npm install -g hyperframes@0.8.179 @hyperframes/aws-lambda@0.8.179
+          # Verifica se o binário da CLI foi buildado (o caminho pode variar)
+          if [ -f "packages/cli/dist/index.js" ]; then
+            CLI_PATH="packages/cli/dist/index.js"
+          elif [ -f "packages/cli/dist/cli.js" ]; then
+            CLI_PATH="packages/cli/dist/cli.js"
+          else
+            echo "::error::Binário da CLI não encontrado. O build do monorepo falhou."
+            ls -la packages/cli/dist/ || true
+            exit 1
+          fi
           
-          # Verifica a stack
+          echo "Usando CLI: $CLI_PATH"
           echo "Stack configurada para render:"
           cat ".hyperframes/lambda-stack-$STACK_NAME.json"
           
-          # Usa o binário global (não o bunx)
-          hyperframes lambda render "$ABS_PROJECT_PATH" \
+          # Executa o render
+          node "$CLI_PATH" lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --width "$WIDTH" \
@@ -166,17 +170,7 @@ jobs:
             --format mp4 \
             --max-parallel-chunks=32 \
             --wait --json | tee render-output.json
-          
-          # Usa o binário global (não o bunx)
-          hyperframes lambda render "$ABS_PROJECT_PATH" \
-            --stack-name="$STACK_NAME" \
-            --region="$AWS_REGION" \
-            --width "$WIDTH" \
-            --height "$HEIGHT" \
-            --fps 30 \
-            --format mp4 \
-            --max-parallel-chunks=32 \
-            --wait --json | tee render-output.json
+
       - name: Baixar o MP4 renderizado do S3
         run: |
           set -euo pipefail
