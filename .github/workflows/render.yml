@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
-          # Se você souber o nome EXATO da tag no seu repo (ex: "0.8.179" sem o "v"), descomente a linha abaixo:
+          # Se quiser travar em uma tag específica, descomente e ajuste o nome exato da tag:
           # ref: 0.8.179
 
       - name: Instalar Bun
@@ -96,18 +96,18 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-east-1
 
       - name: Limpar stack presa em rollback, se houver
         run: |
           set -euo pipefail
           status=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}" \
+            --stack-name "$STACK_NAME" --region "us-east-1" \
             --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "NOT_FOUND")
           if [ "$status" = "ROLLBACK_COMPLETE" ] || [ "$status" = "ROLLBACK_FAILED" ]; then
             echo "⚠️ Stack em $status — deletando antes de recriar."
-            aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}"
-            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "${{ vars.AWS_REGION }}"
+            aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "us-east-1"
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "us-east-1"
           fi
 
       - name: Build do handler.zip
@@ -122,7 +122,7 @@ jobs:
           cd "$HYPERFRAMES_REPO_ROOT/examples/aws-lambda"
           sam deploy \
             --stack-name "$STACK_NAME" \
-            --region "${{ vars.AWS_REGION }}" \
+            --region "us-east-1" \
             --resolve-s3 \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --no-confirm-changeset \
@@ -141,24 +141,24 @@ jobs:
           set -euo pipefail
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "${{ vars.AWS_REGION }}" \
+            --region "us-east-1" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
           state_machine_arn="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "${{ vars.AWS_REGION }}" \
+            --region "us-east-1" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderStateMachineArn`].OutputValue' \
             --output text)"
           function_arn="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "${{ vars.AWS_REGION }}" \
+            --region "us-east-1" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderFunctionArn`].OutputValue' \
             --output text)"
           
           cat > "$HYPERFRAMES_REPO_ROOT/.hyperframes/lambda-stack-$STACK_NAME.json" <<EOF
           {
             "stackName": "$STACK_NAME",
-            "region": "${{ vars.AWS_REGION }}",
+            "region": "us-east-1",
             "stateMachineArn": "$state_machine_arn",
             "bucketName": "$bucket",
             "functionArn": "$function_arn"
@@ -170,7 +170,7 @@ jobs:
           set -euo pipefail
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "${{ vars.AWS_REGION }}" \
+            --region "us-east-1" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
           if [ -z "$bucket" ] || [ "$bucket" = "None" ]; then
@@ -209,7 +209,7 @@ jobs:
           
           hyperframes lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
-            --region="${{ vars.AWS_REGION }}" \
+            --region="us-east-1" \
             --width "$WIDTH" \
             --height "$HEIGHT" \
             --fps 30 \
@@ -222,7 +222,7 @@ jobs:
           set -euo pipefail
           bucket="$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --region "${{ vars.AWS_REGION }}" \
+            --region "us-east-1" \
             --query 'Stacks[0].Outputs[?OutputKey==`RenderBucketName`].OutputValue' \
             --output text)"
           mkdir -p "$ABS_PROJECT_PATH/renders"
