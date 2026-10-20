@@ -188,9 +188,10 @@ jobs:
           echo "=== Conteúdo baixado ==="
           find "$ABS_PROJECT_PATH" -type f -exec ls -la {} \;
 
-      - name: Instalar adaptador da AWS
+      - name: Instalar adaptador da AWS (local)
         run: |
-          npm install -g @hyperframes/aws-lambda
+          cd "$HYPERFRAMES_REPO_ROOT"
+          npm install @hyperframes/aws-lambda@0.8.179
       
       - name: Renderizar via Lambda
         run: |
