@@ -98,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install -g hyperframes@latest
-          npm install -g @hyperframes/aws-lambda@latest
+          npm install -g @hyperframes/aws-lambda@0.8.179
           hyperframes --version
 
       - name: Configurar credenciais AWS
@@ -188,10 +188,6 @@ jobs:
           echo "=== Conteúdo baixado ==="
           find "$ABS_PROJECT_PATH" -type f -exec ls -la {} \;
 
-      - name: Instalar adaptador da AWS (local)
-        run: |
-          cd "$HYPERFRAMES_REPO_ROOT"
-          npm install @hyperframes/aws-lambda@0.8.179
       
       - name: Renderizar via Lambda
         run: |
