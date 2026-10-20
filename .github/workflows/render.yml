@@ -193,7 +193,7 @@ jobs:
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
 
-          hyperframes lambda render "$ABS_PROJECT_PATH" \
+          npx hyperframes@0.8.179 lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --width "$WIDTH" \
