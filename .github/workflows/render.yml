@@ -194,7 +194,11 @@ jobs:
           set -euo pipefail
           cd "$HYPERFRAMES_REPO_ROOT"
 
-          npx hyperframes@0.8.179 lambda render "$ABS_PROJECT_PATH" \
+          # Instala CLI e adaptador globalmente na mesma versão
+          npm install -g hyperframes@0.8.179 @hyperframes/aws-lambda@0.8.179
+          
+          # Roda o render usando o binário global (não o npx)
+          hyperframes lambda render "$ABS_PROJECT_PATH" \
             --stack-name="$STACK_NAME" \
             --region="$AWS_REGION" \
             --width "$WIDTH" \
